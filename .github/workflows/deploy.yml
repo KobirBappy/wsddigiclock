@@ -31,19 +31,21 @@ jobs:
       - name: Run tests
         run: flutter test
 
-      # WEATHER_API_KEY is injected at compile time via --dart-define.
-      # Add it as a GitHub secret: Settings → Secrets → WEATHER_API_KEY
-      # Get a key at: console.cloud.google.com → Enable "Weather API" (Maps Platform)
-      # If the secret is empty, weather widgets are hidden automatically.
       - name: Build web (release)
-        run: flutter build web --release --dart-define=WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
+        run: flutter build web --release
 
-      # Deploy only on direct push to main (not on pull-request builds)
+      # The next three steps only run on direct push to main (not PRs).
+
+      - name: Install Firebase CLI
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: npm install -g firebase-tools
+
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: wsddigiclock
+        run: firebase deploy --only hosting --project wsddigiclock

@@ -40,40 +40,26 @@ class WeatherData {
   });
 }
 
+// Open-Meteo — free, no API key required.
+// Docs: https://open-meteo.com/en/docs
 class WeatherService {
-  // Compile-time key — CI/CD injects via --dart-define=WEATHER_API_KEY=xxx.
-  // The defaultValue is the project key; CI/CD secret overrides it if provided.
-  static const _compiledKey = String.fromEnvironment(
-    'WEATHER_API_KEY',
-    defaultValue: 'AIzaSyDnPdPmh_pu7-IsBflwMFeStUziPpZp2Xs',
-  );
+  static const _baseUrl = 'https://api.open-meteo.com/v1/forecast';
 
-  // Runtime override (kept for programmatic use; not exposed in UI)
-  static String _runtimeKey = '';
-
-  static const _baseUrl = 'https://weather.googleapis.com/v1';
-
-  static String get _apiKey =>
-      _runtimeKey.isNotEmpty ? _runtimeKey : _compiledKey;
-
-  static bool get hasApiKey => _apiKey.isNotEmpty;
-  static String get currentKey => _apiKey;
-
-  /// Called on startup (from SharedPreferences) and when user saves via dialog.
-  static void setRuntimeKey(String key) {
-    _runtimeKey = key.trim();
-    _cache.clear();
-  }
+  static bool get hasApiKey => true; // no key needed
 
   static final Map<String, _CachedEntry> _cache = {};
+  static final Map<String, String> _errors = {};
+
+  static String errorFor(double lat, double lon) {
+    final key = '${lat.toStringAsFixed(3)}_${lon.toStringAsFixed(3)}';
+    return _errors[key] ?? '';
+  }
 
   static Future<WeatherData?> fetch(
     double lat,
     double lon,
     String tzName,
   ) async {
-    if (!hasApiKey) return null;
-
     final cacheKey = '${lat.toStringAsFixed(3)}_${lon.toStringAsFixed(3)}';
     final cached = _cache[cacheKey];
     if (cached != null &&
@@ -82,199 +68,143 @@ class WeatherService {
     }
 
     try {
-      final params =
-          'key=$_apiKey'
-          '&location.latitude=$lat'
-          '&location.longitude=$lon'
-          '&unitsSystem=METRIC'
-          '&languageCode=en';
+      final uri = Uri.parse(_baseUrl).replace(queryParameters: {
+        'latitude': lat.toString(),
+        'longitude': lon.toString(),
+        'current': [
+          'temperature_2m',
+          'relative_humidity_2m',
+          'apparent_temperature',
+          'weather_code',
+          'wind_speed_10m',
+          'is_day',
+        ].join(','),
+        'daily': [
+          'weather_code',
+          'temperature_2m_max',
+          'temperature_2m_min',
+        ].join(','),
+        'wind_speed_unit': 'kmh',
+        'timezone': tzName,
+        'forecast_days': '5',
+      });
 
-      final results = await Future.wait([
-        http
-            .get(Uri.parse('$_baseUrl/currentConditions:lookup?$params'))
-            .timeout(const Duration(seconds: 8)),
-        http
-            .get(Uri.parse('$_baseUrl/forecast/days:lookup?$params&days=5'))
-            .timeout(const Duration(seconds: 8)),
-      ]);
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
 
-      final currentRes = results[0];
-      final forecastRes = results[1];
-
-      if (currentRes.statusCode != 200) return null;
-
-      final cc = jsonDecode(currentRes.body) as Map<String, dynamic>;
-
-      final temp = (cc['temperature'] as Map)['degrees'] as num;
-      final feelsLike = (cc['feelsLikeTemperature'] as Map)['degrees'] as num;
-      final humidity = (cc['relativeHumidity'] as num).toInt();
-      final windSpeed =
-          ((cc['wind'] as Map)['speed'] as Map)['value'] as num;
-      final condition = cc['weatherCondition'] as Map<String, dynamic>;
-      final condType = condition['type'] as String;
-      final description = (condition['description'] as Map)['text'] as String;
-      final isDaytime = cc['isDaytime'] as bool? ?? true;
-      final iconCode = _conditionToIconCode(condType, isDaytime);
-
-      // Today's high/low: prefer from forecast day 0, fall back to history
-      double highT = temp.toDouble();
-      double lowT = temp.toDouble();
-      final history = cc['currentConditionsHistory'] as Map<String, dynamic>?;
-      if (history != null) {
-        highT = ((history['maxTemperature'] as Map)['degrees'] as num).toDouble();
-        lowT = ((history['minTemperature'] as Map)['degrees'] as num).toDouble();
+      if (res.statusCode != 200) {
+        _errors[cacheKey] = 'HTTP ${res.statusCode} — ${res.body}';
+        return null;
       }
 
-      List<DayForecast> forecast = [];
-      if (forecastRes.statusCode == 200) {
-        final fj = jsonDecode(forecastRes.body) as Map<String, dynamic>;
-        final days = fj['forecastDays'] as List;
-        if (days.isNotEmpty) {
-          final today = days[0] as Map<String, dynamic>;
-          highT = ((today['maxTemperature'] as Map)['degrees'] as num).toDouble();
-          lowT = ((today['minTemperature'] as Map)['degrees'] as num).toDouble();
-        }
-        forecast = _parseForecast(days);
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      final cur = j['current'] as Map<String, dynamic>;
+      final daily = j['daily'] as Map<String, dynamic>;
+
+      final tempC = (cur['temperature_2m'] as num).toDouble();
+      final feelsLike = (cur['apparent_temperature'] as num).toDouble();
+      final humidity = (cur['relative_humidity_2m'] as num).toInt();
+      final windKmh = (cur['wind_speed_10m'] as num).toDouble();
+      final wmoCode = (cur['weather_code'] as num).toInt();
+      final isDay = (cur['is_day'] as num?)?.toInt() ?? 1;
+
+      final iconCode = _wmoToIconCode(wmoCode, isDay == 1);
+      final description = _wmoToDescription(wmoCode);
+
+      final maxTemps = (daily['temperature_2m_max'] as List).cast<num>();
+      final minTemps = (daily['temperature_2m_min'] as List).cast<num>();
+      final wmoCodes = (daily['weather_code'] as List).cast<num>();
+      final times = (daily['time'] as List).cast<String>();
+
+      final highT = maxTemps.isNotEmpty ? maxTemps[0].toDouble() : tempC;
+      final lowT = minTemps.isNotEmpty ? minTemps[0].toDouble() : tempC;
+
+      final forecasts = <DayForecast>[];
+      for (int i = 1; i < times.length && forecasts.length < 4; i++) {
+        final date = DateTime.parse(times[i]);
+        forecasts.add(DayForecast(
+          dayLabel: DateFormat('EEE').format(date),
+          maxTemp: maxTemps[i].toDouble(),
+          minTemp: minTemps[i].toDouble(),
+          iconCode: _wmoToIconCode(wmoCodes[i].toInt(), true),
+        ));
       }
 
       final data = WeatherData(
-        tempC: temp.toDouble(),
-        feelsLikeC: feelsLike.toDouble(),
+        tempC: tempC,
+        feelsLikeC: feelsLike,
         description: description,
         iconCode: iconCode,
         humidity: humidity,
-        windKmh: windSpeed.toDouble(),
+        windKmh: windKmh,
         highTempC: highT,
         lowTempC: lowT,
-        forecast: forecast,
+        forecast: forecasts,
       );
+
       _cache[cacheKey] = _CachedEntry(data, DateTime.now());
+      _errors.remove(cacheKey);
       return data;
-    } catch (_) {}
+    } catch (e) {
+      _errors[cacheKey] = e.toString();
+    }
     return null;
   }
 
-  static List<DayForecast> _parseForecast(List<dynamic> days) {
-    final forecasts = <DayForecast>[];
-    // Skip index 0 (today), take up to next 4 days
-    for (int i = 1; i < days.length && forecasts.length < 4; i++) {
-      final day = days[i] as Map<String, dynamic>;
-
-      final dd = day['displayDate'] as Map<String, dynamic>;
-      final date = DateTime(
-        (dd['year'] as num).toInt(),
-        (dd['month'] as num).toInt(),
-        (dd['day'] as num).toInt(),
-      );
-
-      final maxT = ((day['maxTemperature'] as Map)['degrees'] as num).toDouble();
-      final minT = ((day['minTemperature'] as Map)['degrees'] as num).toDouble();
-
-      // Prefer daytime condition for the icon
-      final daytime = day['daytimeForecast'] as Map<String, dynamic>?;
-      final night = day['nighttimeForecast'] as Map<String, dynamic>?;
-      final condMap =
-          (daytime ?? night)?['weatherCondition'] as Map<String, dynamic>?;
-      final condType = condMap?['type'] as String? ?? 'CLEAR';
-
-      forecasts.add(DayForecast(
-        dayLabel: DateFormat('EEE').format(date),
-        maxTemp: maxT,
-        minTemp: minT,
-        iconCode: _conditionToIconCode(condType, true),
-      ));
-    }
-    return forecasts;
+  // WMO Weather Interpretation Codes → internal icon codes
+  static String _wmoToIconCode(int code, bool isDay) {
+    final s = isDay ? 'd' : 'n';
+    if (code == 0) return '01$s';
+    if (code <= 2) return '02$s';
+    if (code == 3) return '04$s';
+    if (code >= 45 && code <= 48) return '50$s'; // fog
+    if (code >= 51 && code <= 55) return '09$s'; // drizzle
+    if (code >= 56 && code <= 57) return '09$s'; // freezing drizzle
+    if (code >= 61 && code <= 65) return '10$s'; // rain
+    if (code >= 66 && code <= 67) return '10$s'; // freezing rain
+    if (code >= 71 && code <= 77) return '13$s'; // snow
+    if (code >= 80 && code <= 82) return '09$s'; // rain showers
+    if (code == 85 || code == 86) return '13$s'; // snow showers
+    if (code >= 95 && code <= 99) return '11$s'; // thunderstorm
+    return '01$s';
   }
 
-  // Maps Google WeatherCondition enum strings to internal 2-digit icon codes
-  static String _conditionToIconCode(String type, bool isDaytime) {
-    final s = isDaytime ? 'd' : 'n';
-    switch (type) {
-      case 'CLEAR':
-      case 'MOSTLY_CLEAR':
-        return '01$s';
-      case 'PARTLY_CLOUDY':
-      case 'CHANCE_OF_SHOWERS':
-      case 'CHANCE_OF_SNOW_SHOWERS':
-        return '02$s';
-      case 'MOSTLY_CLOUDY':
-      case 'CLOUDY':
-      case 'WINDY':
-        return '03$s';
-      case 'OVERCAST':
-        return '04$s';
-      case 'LIGHT_RAIN_SHOWERS':
-      case 'SCATTERED_SHOWERS':
-      case 'RAIN_SHOWERS':
-      case 'HEAVY_RAIN_SHOWERS':
-      case 'LIGHT_RAIN':
-      case 'LIGHT_TO_MODERATE_RAIN':
-        return '09$s';
-      case 'RAIN':
-      case 'MODERATE_TO_HEAVY_RAIN':
-      case 'HEAVY_RAIN':
-      case 'RAIN_PERIODICALLY_HEAVY':
-      case 'WIND_AND_RAIN':
-      case 'FREEZING_RAIN':
-      case 'RAIN_AND_SNOW':
-      case 'HAIL':
-      case 'HAIL_SHOWERS':
-        return '10$s';
-      case 'THUNDERSTORM':
-      case 'THUNDERSHOWER':
-      case 'LIGHT_THUNDERSTORM_RAIN':
-      case 'SCATTERED_THUNDERSTORMS':
-      case 'HEAVY_THUNDERSTORM':
-        return '11$s';
-      case 'SNOW':
-      case 'LIGHT_SNOW':
-      case 'HEAVY_SNOW':
-      case 'LIGHT_TO_MODERATE_SNOW':
-      case 'MODERATE_TO_HEAVY_SNOW':
-      case 'SNOW_PERIODICALLY_HEAVY':
-      case 'HEAVY_SNOW_STORM':
-      case 'SNOWSTORM':
-      case 'LIGHT_SNOW_SHOWERS':
-      case 'SCATTERED_SNOW_SHOWERS':
-      case 'SNOW_SHOWERS':
-      case 'HEAVY_SNOW_SHOWERS':
-      case 'BLOWING_SNOW':
-        return '13$s';
-      case 'FOG':
-      case 'HAZE':
-      case 'SMOKE':
-      case 'DUST':
-      case 'SAND':
-        return '50$s';
-      default:
-        return '01$s';
-    }
+  // Human-readable description from WMO code
+  static String _wmoToDescription(int code) {
+    if (code == 0) return 'Clear sky';
+    if (code == 1) return 'Mainly clear';
+    if (code == 2) return 'Partly cloudy';
+    if (code == 3) return 'Overcast';
+    if (code == 45 || code == 48) return 'Foggy';
+    if (code >= 51 && code <= 55) return 'Drizzle';
+    if (code >= 56 && code <= 57) return 'Freezing drizzle';
+    if (code == 61) return 'Slight rain';
+    if (code == 63) return 'Moderate rain';
+    if (code == 65) return 'Heavy rain';
+    if (code >= 66 && code <= 67) return 'Freezing rain';
+    if (code == 71) return 'Slight snow';
+    if (code == 73) return 'Moderate snow';
+    if (code == 75) return 'Heavy snow';
+    if (code == 77) return 'Snow grains';
+    if (code >= 80 && code <= 82) return 'Rain showers';
+    if (code == 85 || code == 86) return 'Snow showers';
+    if (code == 95) return 'Thunderstorm';
+    if (code == 96 || code == 99) return 'Thunderstorm w/ hail';
+    return 'Unknown';
   }
 
   static String iconToEmoji(String code) {
     if (code.length < 2) return '🌡️';
     switch (code.substring(0, 2)) {
-      case '01':
-        return '☀️';
-      case '02':
-        return '⛅';
-      case '03':
-        return '☁️';
-      case '04':
-        return '☁️';
-      case '09':
-        return '🌧️';
-      case '10':
-        return '🌦️';
-      case '11':
-        return '⛈️';
-      case '13':
-        return '❄️';
-      case '50':
-        return '🌫️';
-      default:
-        return '🌡️';
+      case '01': return '☀️';
+      case '02': return '⛅';
+      case '03': return '☁️';
+      case '04': return '☁️';
+      case '09': return '🌧️';
+      case '10': return '🌦️';
+      case '11': return '⛈️';
+      case '13': return '❄️';
+      case '50': return '🌫️';
+      default:   return '🌡️';
     }
   }
 }

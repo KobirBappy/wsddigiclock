@@ -9,7 +9,7 @@ import 'package:timezone/data/latest.dart' as tz_data;
 import 'weather_animation.dart';
 import 'weather_service.dart';
 
-// ── WSD brand palette (light-theme) ──────────────────────────────────────────
+// ── WSD brand palette ─────────────────────────────────────────────────────────
 const kWsdCyan  = Color(0xFF00838F);
 const kWsdBlue  = Color(0xFF1565C0);
 const kWsdRed   = Color(0xFFC62828);
@@ -188,7 +188,6 @@ class _ClockPageState extends State<ClockPage>
     super.dispose();
   }
 
-  // ── UTC offset ──────────────────────────────────────────────────────────────
   String _utcOffset(String tzName) {
     final loc = tz.getLocation(tzName);
     final now = tz.TZDateTime.now(loc);
@@ -217,33 +216,54 @@ class _ClockPageState extends State<ClockPage>
     );
   }
 
+  // Non-scrollable grid: fills available height exactly with Expanded rows/cols.
   Widget _buildGrid() {
     return LayoutBuilder(builder: (ctx, constraints) {
       final w = constraints.maxWidth;
-      final cols = w > 1100 ? 3 : w > 660 ? 2 : 1;
-      final ratio = cols == 3 ? 0.92 : cols == 2 ? 1.05 : 0.88;
-      final pad = w > 660 ? 22.0 : 12.0;
+      final cols = w > 1100 ? 3 : w > 600 ? 2 : 1;
+      final rows = (kCities.length / cols).ceil();
+      final pad = w > 660 ? 14.0 : 8.0;
+      const gap = 10.0;
 
-      return GridView.builder(
-        padding: EdgeInsets.fromLTRB(pad, 8, pad, 16),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: cols,
-          childAspectRatio: ratio,
-          crossAxisSpacing: 14,
-          mainAxisSpacing: 14,
+      return Padding(
+        padding: EdgeInsets.fromLTRB(pad, 8, pad, 10),
+        child: Column(
+          children: List.generate(rows, (rowIdx) {
+            final start = rowIdx * cols;
+            final end = (start + cols).clamp(0, kCities.length);
+            final rowItems = kCities.sublist(start, end);
+
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: rowIdx > 0 ? gap : 0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 0; i < rowItems.length; i++) ...[
+                      if (i > 0) const SizedBox(width: gap),
+                      Expanded(
+                        child: ClockCard(
+                          city: rowItems[i],
+                          colonVisible: _colonVisible,
+                          utcOffset: _utcOffset(rowItems[i].timezone),
+                          weather: _weather[rowItems[i].timezone],
+                          weatherLoading: !_weatherLoaded,
+                          weatherError: _weatherLoaded &&
+                                  _weather[rowItems[i].timezone] == null
+                              ? WeatherService.errorFor(
+                                  rowItems[i].lat, rowItems[i].lon)
+                              : '',
+                          onRetry: _fetchWeather,
+                          liveDot: _liveDot,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
-        itemCount: kCities.length,
-        itemBuilder: (_, i) {
-          final city = kCities[i];
-          return ClockCard(
-            city: city,
-            colonVisible: _colonVisible,
-            utcOffset: _utcOffset(city.timezone),
-            weather: _weather[city.timezone],
-            weatherLoading: !_weatherLoaded,
-            liveDot: _liveDot,
-          );
-        },
       );
     });
   }
@@ -252,45 +272,43 @@ class _ClockPageState extends State<ClockPage>
 // ── Header ────────────────────────────────────────────────────────────────────
 class _WSDHeader extends StatelessWidget {
   final AnimationController liveDot;
-
   const _WSDHeader({required this.liveDot});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 0),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // WSD official SVG logo
               SvgPicture.asset(
                 'assets/wsd_logo.svg',
-                height: 30,
+                height: 26,
                 colorFilter: const ColorFilter.mode(
                   Color(0xFF001F3F),
                   BlendMode.srcIn,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               _verticalDivider(),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'GROUP',
                     style: GoogleFonts.orbitron(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                       color: kPrimary,
                       letterSpacing: 5,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       AnimatedBuilder(
@@ -316,7 +334,7 @@ class _WSDHeader extends StatelessWidget {
                       Text(
                         'LIVE WORLD TIME & WEATHER',
                         style: GoogleFonts.inter(
-                          fontSize: 9,
+                          fontSize: 8.5,
                           fontWeight: FontWeight.w600,
                           color: kSecond,
                           letterSpacing: 2.2,
@@ -328,24 +346,23 @@ class _WSDHeader extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _quote(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           _divider(),
         ],
       ),
     );
   }
 
-  Widget _verticalDivider() {
-    return Container(width: 1, height: 36, color: const Color(0xFFE2E8F0));
-  }
+  Widget _verticalDivider() =>
+      Container(width: 1, height: 32, color: const Color(0xFFE2E8F0));
 
   Widget _quote() {
     return RichText(
       text: TextSpan(
         style: GoogleFonts.inter(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.3,
         ),
@@ -353,20 +370,12 @@ class _WSDHeader extends StatelessWidget {
           TextSpan(text: 'Innovate', style: TextStyle(color: kWsdCyan)),
           TextSpan(
             text: '  ●  ',
-            style: TextStyle(
-              color: kWsdBlue,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(color: kWsdBlue, fontSize: 7, fontWeight: FontWeight.w900),
           ),
           TextSpan(text: 'Collaborate', style: TextStyle(color: kWsdGreen)),
           TextSpan(
             text: '  ●  ',
-            style: TextStyle(
-              color: kWsdRed,
-              fontSize: 8,
-              fontWeight: FontWeight.w900,
-            ),
+            style: TextStyle(color: kWsdRed, fontSize: 7, fontWeight: FontWeight.w900),
           ),
           TextSpan(text: 'Excellence', style: TextStyle(color: kPrimary)),
           TextSpan(
@@ -397,15 +406,11 @@ class _Footer extends StatelessWidget {
     return Container(
       color: Colors.white,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
-          style: GoogleFonts.inter(
-            fontSize: 10.5,
-            color: kTertiary,
-            letterSpacing: 0.3,
-          ),
+          style: GoogleFonts.inter(fontSize: 10, color: kTertiary, letterSpacing: 0.3),
           children: [
             TextSpan(text: '© ${DateTime.now().year} '),
             const TextSpan(
@@ -427,6 +432,8 @@ class ClockCard extends StatelessWidget {
   final String utcOffset;
   final WeatherData? weather;
   final bool weatherLoading;
+  final String weatherError;
+  final VoidCallback onRetry;
   final AnimationController liveDot;
 
   const ClockCard({
@@ -436,6 +443,8 @@ class ClockCard extends StatelessWidget {
     required this.utcOffset,
     required this.weather,
     required this.weatherLoading,
+    required this.weatherError,
+    required this.onRetry,
     required this.liveDot,
   });
 
@@ -443,85 +452,100 @@ class ClockCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = tz.getLocation(city.timezone);
     final now = tz.TZDateTime.now(loc);
-    final hour = DateFormat('HH').format(now);
+    final hour   = DateFormat('HH').format(now);
     final minute = DateFormat('mm').format(now);
     final second = DateFormat('ss').format(now);
-    final dateStr = DateFormat('EEEE, dd MMMM yyyy').format(now);
+    final dateStr = DateFormat('EEE, dd MMM yyyy').format(now);
     final secFrac = now.second / 59.0;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: city.accent.withOpacity(0.10),
-            blurRadius: 18,
-            offset: const Offset(0, 4),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Colored accent bar
-            Container(height: 4, color: city.accent),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 11, 16, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _cityRow(),
-                    const SizedBox(height: 5),
-                    _timeRow(hour, minute, second),
-                    const SizedBox(height: 8),
-                    Expanded(child: _weatherSection()),
-                    const SizedBox(height: 8),
-                    _bottomRow(dateStr, secFrac),
-                  ],
-                ),
-              ),
+    return LayoutBuilder(builder: (ctx, constraints) {
+      // Scale content based on available card height
+      final h = constraints.maxHeight;
+      final xs = h < 200;       // extra small
+      final sm = h < 260;       // small
+      final md = h < 340;       // medium (no forecast strip)
+
+      final vPad  = xs ? 5.0 : sm ? 7.0 : 10.0;
+      final hPad  = xs ? 10.0 : sm ? 12.0 : 14.0;
+      final gap1  = xs ? 2.0 : sm ? 3.0 : 4.0;   // after city row
+      final gap2  = xs ? 3.0 : sm ? 5.0 : 6.0;   // after time row
+      final gap3  = xs ? 3.0 : sm ? 4.0 : 6.0;   // after weather
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: city.accent.withOpacity(0.10),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
-      ),
-    );
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(height: 3, color: city.accent),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(hPad, vPad, hPad, vPad),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _cityRow(xs, sm),
+                      SizedBox(height: gap1),
+                      _timeRow(hour, minute, second, xs, sm),
+                      SizedBox(height: gap2),
+                      Expanded(child: _weatherSection(sm, md)),
+                      SizedBox(height: gap3),
+                      _bottomRow(dateStr, secFrac, xs),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
   }
 
-  // ── City header ─────────────────────────────────────────────────────────
-  Widget _cityRow() {
+  // ── City header ──────────────────────────────────────────────────────────
+  Widget _cityRow(bool xs, bool sm) {
+    final flagSz = xs ? 16.0 : sm ? 18.0 : 20.0;
+    final nameSz = xs ? 11.0 : sm ? 12.0 : 13.0;
+    final ctrySz = xs ? 8.5 : sm ? 9.0 : 9.5;
+    final badgeSz = xs ? 7.0 : 7.5;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
-            Text(city.flag, style: const TextStyle(fontSize: 22)),
-            const SizedBox(width: 9),
+            Text(city.flag, style: TextStyle(fontSize: flagSz)),
+            SizedBox(width: xs ? 6 : 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   city.name,
                   style: GoogleFonts.inter(
-                    fontSize: 14,
+                    fontSize: nameSz,
                     fontWeight: FontWeight.w700,
                     color: kPrimary,
                   ),
                 ),
                 Text(
                   city.country,
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    color: kTertiary,
-                  ),
+                  style: GoogleFonts.inter(fontSize: ctrySz, color: kTertiary),
                 ),
               ],
             ),
@@ -532,23 +556,26 @@ class ClockCard extends StatelessWidget {
             AnimatedBuilder(
               animation: liveDot,
               builder: (_, __) => Container(
-                width: 6,
-                height: 6,
-                margin: const EdgeInsets.only(right: 7),
+                width: 5,
+                height: 5,
+                margin: const EdgeInsets.only(right: 6),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: city.accent.withOpacity(0.45 + liveDot.value * 0.55),
                   boxShadow: [
                     BoxShadow(
                       color: city.accent.withOpacity(liveDot.value * 0.45),
-                      blurRadius: 7,
+                      blurRadius: 6,
                     ),
                   ],
                 ),
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: EdgeInsets.symmetric(
+                horizontal: xs ? 5 : 7,
+                vertical: xs ? 2 : 3,
+              ),
               decoration: BoxDecoration(
                 color: city.accent.withOpacity(0.09),
                 borderRadius: BorderRadius.circular(20),
@@ -557,7 +584,7 @@ class ClockCard extends StatelessWidget {
               child: Text(
                 utcOffset,
                 style: GoogleFonts.orbitron(
-                  fontSize: 8,
+                  fontSize: badgeSz,
                   color: city.accent,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 0.4,
@@ -570,21 +597,25 @@ class ClockCard extends StatelessWidget {
     );
   }
 
-  // ── Digital time ────────────────────────────────────────────────────────
-  Widget _timeRow(String hour, String minute, String second) {
+  // ── Digital time ─────────────────────────────────────────────────────────
+  Widget _timeRow(String hour, String minute, String second, bool xs, bool sm) {
+    final digitSz = xs ? 24.0 : sm ? 28.0 : 34.0;
+    final colonSz = xs ? 18.0 : sm ? 22.0 : 26.0;
+    final secSz   = xs ? 10.0 : sm ? 11.0 : 13.0;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        _digit(hour),
-        _colon(),
-        _digit(minute),
-        const SizedBox(width: 5),
+        _digit(hour, digitSz),
+        _colon(colonSz),
+        _digit(minute, digitSz),
+        const SizedBox(width: 4),
         Padding(
-          padding: const EdgeInsets.only(bottom: 3),
+          padding: const EdgeInsets.only(bottom: 2),
           child: Text(
             second,
             style: GoogleFonts.orbitron(
-              fontSize: 14,
+              fontSize: secSz,
               fontWeight: FontWeight.w600,
               color: city.accent.withOpacity(0.5),
               letterSpacing: 1,
@@ -596,10 +627,10 @@ class ClockCard extends StatelessWidget {
     );
   }
 
-  Widget _digit(String v) => Text(
+  Widget _digit(String v, double sz) => Text(
         v,
         style: GoogleFonts.orbitron(
-          fontSize: 38,
+          fontSize: sz,
           fontWeight: FontWeight.w900,
           color: city.accent,
           letterSpacing: 2,
@@ -607,15 +638,15 @@ class ClockCard extends StatelessWidget {
         ),
       );
 
-  Widget _colon() => Padding(
-        padding: const EdgeInsets.only(bottom: 3, left: 2, right: 2),
+  Widget _colon(double sz) => Padding(
+        padding: const EdgeInsets.only(bottom: 2, left: 2, right: 2),
         child: AnimatedOpacity(
           opacity: colonVisible ? 1.0 : 0.08,
           duration: const Duration(milliseconds: 250),
           child: Text(
             ':',
             style: GoogleFonts.orbitron(
-              fontSize: 30,
+              fontSize: sz,
               fontWeight: FontWeight.w900,
               color: city.accent,
               height: 1,
@@ -624,19 +655,18 @@ class ClockCard extends StatelessWidget {
         ),
       );
 
-  // ── Weather section (fills remaining space) ──────────────────────────────
-  Widget _weatherSection() {
-    if (weatherLoading || weather == null) {
-      return _loadingPlaceholder();
-    }
-    return _weatherContent(weather!);
+  // ── Weather section ───────────────────────────────────────────────────────
+  Widget _weatherSection(bool sm, bool md) {
+    if (weatherLoading) return _loadingPlaceholder();
+    if (weather == null) return _errorPlaceholder();
+    return _weatherContent(weather!, showForecast: !md);
   }
 
   Widget _loadingPlaceholder() {
     return Container(
       decoration: BoxDecoration(
         color: city.accent.withOpacity(0.04),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: city.accent.withOpacity(0.12)),
       ),
       child: Center(
@@ -644,17 +674,17 @@ class ClockCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: 14,
+              height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: city.accent.withOpacity(0.4),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Text(
               'Fetching weather…',
-              style: GoogleFonts.inter(fontSize: 12, color: kTertiary),
+              style: GoogleFonts.inter(fontSize: 11, color: kTertiary),
             ),
           ],
         ),
@@ -662,91 +692,152 @@ class ClockCard extends StatelessWidget {
     );
   }
 
-  Widget _weatherContent(WeatherData w) {
-    return Column(
-      children: [
-        // Current weather panel
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-          decoration: BoxDecoration(
-            color: city.accent.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: city.accent.withOpacity(0.13)),
+  Widget _errorPlaceholder() {
+    final hint = weatherError.length > 120
+        ? '${weatherError.substring(0, 120)}…'
+        : weatherError;
+    return Container(
+      decoration: BoxDecoration(
+        color: kWsdRed.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: kWsdRed.withOpacity(0.18)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: kWsdRed, size: 18),
+          const SizedBox(height: 3),
+          Text(
+            'Weather unavailable',
+            style: GoogleFonts.inter(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: kWsdRed,
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              WeatherAnimation(iconCode: w.iconCode, size: 68),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          '${w.tempC.round()}°',
-                          style: GoogleFonts.inter(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: city.accent,
-                            height: 1,
-                          ),
-                        ),
-                        Text(
-                          'C',
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: kSecond,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _cap(w.description),
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: kSecond,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Feels ${w.feelsLikeC.round()}°  ·  H:${w.highTempC.round()}°  L:${w.lowTempC.round()}°',
-                      style: GoogleFonts.inter(
-                        fontSize: 9.5,
-                        color: kTertiary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 5,
-                      children: [
-                        _chip('💧 ${w.humidity}%'),
-                        _chip('🌬️ ${w.windKmh.round()} km/h'),
-                      ],
-                    ),
-                  ],
+          if (hint.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              hint,
+              style: GoogleFonts.inter(fontSize: 8.5, color: kSecond),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 5),
+          GestureDetector(
+            onTap: onRetry,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: city.accent.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: city.accent.withOpacity(0.28)),
+              ),
+              child: Text(
+                '↻  Retry',
+                style: GoogleFonts.inter(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: city.accent,
                 ),
               ),
-            ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _weatherContent(WeatherData w, {required bool showForecast}) {
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: city.accent.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: city.accent.withOpacity(0.13)),
+            ),
+            child: LayoutBuilder(builder: (ctx, bc) {
+              final animSz = (bc.maxHeight * 0.65).clamp(32.0, 58.0);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  WeatherAnimation(iconCode: w.iconCode, size: animSz),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              '${w.tempC.round()}°',
+                              style: GoogleFonts.inter(
+                                fontSize: (animSz * 0.42).clamp(16.0, 24.0),
+                                fontWeight: FontWeight.w800,
+                                color: city.accent,
+                                height: 1,
+                              ),
+                            ),
+                            Text(
+                              'C',
+                              style: GoogleFonts.inter(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: kSecond,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          _cap(w.description),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            color: kSecond,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Feels ${w.feelsLikeC.round()}°  ·  H:${w.highTempC.round()}°  L:${w.lowTempC.round()}°',
+                          style: GoogleFonts.inter(fontSize: 9, color: kTertiary),
+                        ),
+                        const SizedBox(height: 3),
+                        Wrap(
+                          spacing: 4,
+                          children: [
+                            _chip('💧 ${w.humidity}%'),
+                            _chip('🌬️ ${w.windKmh.round()} km/h'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }),
           ),
         ),
-        // Forecast strip
-        if (w.forecast.isNotEmpty) ...[
-          const SizedBox(height: 7),
-          Row(
-            children: w.forecast
-                .map(
-                  (d) => Expanded(
-                    child: _ForecastCell(day: d, accent: city.accent),
-                  ),
-                )
-                .toList(),
+        if (showForecast && w.forecast.isNotEmpty) ...[
+          const SizedBox(height: 5),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: w.forecast
+                  .map((d) => Expanded(
+                        child: _ForecastCell(day: d, accent: city.accent),
+                      ))
+                  .toList(),
+            ),
           ),
         ],
       ],
@@ -755,7 +846,7 @@ class ClockCard extends StatelessWidget {
 
   Widget _chip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: city.accent.withOpacity(0.08),
         borderRadius: BorderRadius.circular(20),
@@ -763,7 +854,7 @@ class ClockCard extends StatelessWidget {
       child: Text(
         label,
         style: GoogleFonts.inter(
-          fontSize: 9,
+          fontSize: 8.5,
           color: kSecond,
           fontWeight: FontWeight.w600,
         ),
@@ -771,20 +862,20 @@ class ClockCard extends StatelessWidget {
     );
   }
 
-  // ── Date + seconds progress bar ──────────────────────────────────────────
-  Widget _bottomRow(String dateStr, double secFrac) {
+  // ── Date + seconds progress bar ───────────────────────────────────────────
+  Widget _bottomRow(String dateStr, double secFrac, bool xs) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           dateStr,
           style: GoogleFonts.inter(
-            fontSize: 10,
+            fontSize: xs ? 8.5 : 9.5,
             color: kTertiary,
             letterSpacing: 0.2,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 3),
         Stack(
           children: [
             Container(
@@ -828,43 +919,43 @@ class _ForecastCell extends StatelessWidget {
     final emoji = WeatherService.iconToEmoji(day.iconCode);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 2),
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: accent.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: accent.withOpacity(0.14)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            day.dayLabel.toUpperCase(),
-            style: GoogleFonts.inter(
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-              color: kSecond,
-              letterSpacing: 0.7,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              day.dayLabel.toUpperCase(),
+              style: GoogleFonts.inter(
+                fontSize: 7.5,
+                fontWeight: FontWeight.w700,
+                color: kSecond,
+                letterSpacing: 0.6,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(emoji, style: const TextStyle(fontSize: 16)),
-          const SizedBox(height: 2),
-          Text(
-            '${day.maxTemp.round()}°',
-            style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: accent,
+            const SizedBox(height: 2),
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 1),
+            Text(
+              '${day.maxTemp.round()}°',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: accent,
+              ),
             ),
-          ),
-          Text(
-            '${day.minTemp.round()}°',
-            style: GoogleFonts.inter(
-              fontSize: 9.5,
-              color: kTertiary,
+            Text(
+              '${day.minTemp.round()}°',
+              style: GoogleFonts.inter(fontSize: 8.5, color: kTertiary),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
