@@ -34,12 +34,18 @@ jobs:
       - name: Build web (release)
         run: flutter build web --release
 
-      # The next two steps only run on direct push to main (not PRs).
+      # The next three steps only run on direct push to main (not PRs).
 
       - name: Install Firebase CLI
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: npm install -g firebase-tools
 
+      - name: Authenticate to Google Cloud
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_TOKEN }}
+
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: firebase deploy --only hosting --project wsddigiclock --token ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only hosting --project wsddigiclock
