@@ -702,51 +702,58 @@ class ClockCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: kWsdRed.withOpacity(0.18)),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.cloud_off_outlined, color: kWsdRed, size: 18),
-          const SizedBox(height: 3),
-          Text(
-            'Weather unavailable',
-            style: GoogleFonts.inter(
-              fontSize: 10.5,
-              fontWeight: FontWeight.w600,
-              color: kWsdRed,
-            ),
-          ),
-          if (hint.isNotEmpty) ...[
-            const SizedBox(height: 3),
-            Text(
-              hint,
-              style: GoogleFonts.inter(fontSize: 8.5, color: kSecond),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-          const SizedBox(height: 5),
-          GestureDetector(
-            onTap: onRetry,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: city.accent.withOpacity(0.10),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: city.accent.withOpacity(0.28)),
-              ),
-              child: Text(
-                '↻  Retry',
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, color: kWsdRed, size: 18),
+              const SizedBox(height: 3),
+              Text(
+                'Weather unavailable',
                 style: GoogleFonts.inter(
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  color: city.accent,
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: kWsdRed,
                 ),
               ),
-            ),
+              if (hint.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  hint,
+                  style: GoogleFonts.inter(fontSize: 8.5, color: kSecond),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              const SizedBox(height: 5),
+              GestureDetector(
+                onTap: onRetry,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: city.accent.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(20),
+                    border:
+                        Border.all(color: city.accent.withOpacity(0.28)),
+                  ),
+                  child: Text(
+                    '↻  Retry',
+                    style: GoogleFonts.inter(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      color: city.accent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -770,56 +777,61 @@ class ClockCard extends StatelessWidget {
                   WeatherAnimation(iconCode: w.iconCode, size: animSz),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              '${w.tempC.round()}°',
-                              style: GoogleFonts.inter(
-                                fontSize: (animSz * 0.42).clamp(16.0, 24.0),
-                                fontWeight: FontWeight.w800,
-                                color: city.accent,
-                                height: 1,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '${w.tempC.round()}°',
+                                style: GoogleFonts.inter(
+                                  fontSize: (animSz * 0.42).clamp(16.0, 24.0),
+                                  fontWeight: FontWeight.w800,
+                                  color: city.accent,
+                                  height: 1,
+                                ),
                               ),
-                            ),
-                            Text(
-                              'C',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: kSecond,
+                              Text(
+                                'C',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: kSecond,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          _cap(w.description),
-                          style: GoogleFonts.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: kSecond,
+                            ],
                           ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Feels ${w.feelsLikeC.round()}°  ·  H:${w.highTempC.round()}°  L:${w.lowTempC.round()}°',
-                          style: GoogleFonts.inter(fontSize: 9, color: kTertiary),
-                        ),
-                        const SizedBox(height: 3),
-                        Wrap(
-                          spacing: 4,
-                          children: [
-                            _chip('💧 ${w.humidity}%'),
-                            _chip('🌬️ ${w.windKmh.round()} km/h'),
-                          ],
-                        ),
-                      ],
+                          Text(
+                            _cap(w.description),
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: kSecond,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Feels ${w.feelsLikeC.round()}°  ·  H:${w.highTempC.round()}°  L:${w.lowTempC.round()}°',
+                            style: GoogleFonts.inter(
+                                fontSize: 9, color: kTertiary),
+                          ),
+                          const SizedBox(height: 3),
+                          Wrap(
+                            spacing: 4,
+                            children: [
+                              _chip('💧 ${w.humidity}%'),
+                              _chip('🌬️ ${w.windKmh.round()} km/h'),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
