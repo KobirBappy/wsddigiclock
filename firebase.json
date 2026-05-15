@@ -1,1 +1,69 @@
-{"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}],"headers":[{"source":"**/*.@(js|wasm)","headers":[{"key":"Cache-Control","value":"public, max-age=604800, immutable"}]},{"source":"**/*.@(css|png|jpg|gif|svg|ico|woff2)","headers":[{"key":"Cache-Control","value":"public, max-age=604800, immutable"}]},{"source":"index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"}]}]},"flutter":{"platforms":{"android":{"default":{"projectId":"wsddigiclock","appId":"1:108834765452:android:0cd392e2d0bfaeba3259a9","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"wsddigiclock","configurations":{"android":"1:108834765452:android:0cd392e2d0bfaeba3259a9","ios":"1:108834765452:ios:bd1f55351be0497a3259a9","macos":"1:108834765452:ios:bd1f55351be0497a3259a9","web":"1:108834765452:web:43017a23e6d09bff3259a9","windows":"1:108834765452:web:fa142b2e3bbd77c83259a9"}}}}}}
+{
+    "hosting": {
+        "target": "wsdworldtime",
+        "public": "build/web",
+        "ignore": [
+            "firebase.json",
+            "**/.*",
+            "**/node_modules/**"
+        ],
+        "rewrites": [
+            {
+                "source": "**",
+                "destination": "/index.html"
+            }
+        ],
+        "headers": [
+            {
+                "source": "**/*.@(js|wasm)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=604800, immutable"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(css|png|jpg|gif|svg|ico|woff2)",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "public, max-age=604800, immutable"
+                    }
+                ]
+            },
+            {
+                "source": "index.html",
+                "headers": [
+                    {
+                        "key": "Cache-Control",
+                        "value": "no-cache, no-store, must-revalidate"
+                    }
+                ]
+            }
+        ]
+    },
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "wsddigiclock",
+                    "appId": "1:108834765452:android:0cd392e2d0bfaeba3259a9",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "wsddigiclock",
+                    "configurations": {
+                        "android": "1:108834765452:android:0cd392e2d0bfaeba3259a9",
+                        "ios": "1:108834765452:ios:bd1f55351be0497a3259a9",
+                        "macos": "1:108834765452:ios:bd1f55351be0497a3259a9",
+                        "web": "1:108834765452:web:43017a23e6d09bff3259a9",
+                        "windows": "1:108834765452:web:fa142b2e3bbd77c83259a9"
+                    }
+                }
+            }
+        }
+    }
+}
