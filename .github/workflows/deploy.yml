@@ -2,11 +2,9 @@ name: Build & Deploy — WSD World Clock
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build_and_deploy:
@@ -32,10 +30,16 @@ jobs:
       - name: Run tests
         run: flutter test
 
+      # WEATHER_API_KEY is injected at compile time via --dart-define.
+      # Add it as a GitHub secret: Settings → Secrets → WEATHER_API_KEY
+      # Get a key at: console.cloud.google.com → Enable "Weather API" (Maps Platform)
+      # If the secret is empty, weather widgets are hidden automatically.
       - name: Build web (release)
-        run: flutter build web --release
+        run: |
+          flutter build web --release \
+            --dart-define=WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
 
-      # Only deploy on pushes to main (not on PRs)
+      # Deploy only on direct push to main (not on pull-request builds)
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: FirebaseExtended/action-hosting-deploy@v0
@@ -43,4 +47,4 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
-          projectId: wsd-digiclock
+          projectId: wsddigiclock
