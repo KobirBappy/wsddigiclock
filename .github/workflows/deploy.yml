@@ -46,6 +46,10 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_TOKEN }}
 
+      - name: Create hosting site if not exists
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: firebase hosting:sites:create wsdworldtime --project wsddigiclock 2>/dev/null || true
+
       - name: Deploy to Firebase Hosting
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: firebase deploy --only hosting --project wsddigiclock
