@@ -1,0 +1,11 @@
+# Force LF line endings on Linux/macOS CI runners for all text files.
+# Prevents CRLF from Windows edits breaking bash scripts in GitHub Actions.
+* text=auto eol=lf
+
+# Treat binary assets as binary (no line-ending conversion).
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

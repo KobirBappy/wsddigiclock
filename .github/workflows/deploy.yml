@@ -36,9 +36,7 @@ jobs:
       # Get a key at: console.cloud.google.com → Enable "Weather API" (Maps Platform)
       # If the secret is empty, weather widgets are hidden automatically.
       - name: Build web (release)
-        run: |
-          flutter build web --release \
-            --dart-define=WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
+        run: flutter build web --release --dart-define=WEATHER_API_KEY=${{ secrets.WEATHER_API_KEY }}
 
       # Deploy only on direct push to main (not on pull-request builds)
       - name: Deploy to Firebase Hosting
