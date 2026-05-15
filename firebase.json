@@ -1,6 +1,6 @@
 {
     "hosting": {
-        "target": "wsdworldtime",
+        "site": "wsdworldtime",
         "public": "build/web",
         "ignore": [
             "firebase.json",

@@ -1,12 +1,5 @@
 {
   "projects": {
     "default": "wsddigiclock"
-  },
-  "targets": {
-    "wsddigiclock": {
-      "hosting": {
-        "wsdworldtime": ["wsdworldtime"]
-      }
-    }
   }
 }
